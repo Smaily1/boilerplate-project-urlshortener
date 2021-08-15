@@ -2,18 +2,29 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const app = express();
+var mongo = require('mongodb');
 const mongoose = require('mongoose');
 const bodyParser = require('body-parser');
 const validUrl = require('valid-url');
 
 
 // Basic Configuration
-const port = process.env.PORT || 3000;
+const port = 3000;
 
-mongoose.connect( process.env.DB_URI , {useNewUrlParser: true, useUnifiedTopology: true}, () =>
-console.log("connected")); 
+// mongoose.connect( process.env.DB_URI , {useNewUrlParser: true, useUnifiedTopology: true}, () =>
+// console.log("connected")); 
 
-console.log(mongoose.connection.readyState)
+mongoose.connect("mongodb+srv://admin:12345@cluster0.ldvwh.mongodb.net/myFirstDatabase?retryWrites=true&w=majority", {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+  useFindAndModify: false,
+  useCreateIndex: true,
+}).then(()=>{
+  console.log('database connected.')
+}).catch((err) => console.log(err.message))
+
+
+// console.log(mongoose.connection.readyState)
 app.use(cors());
 
 app.use('/public', express.static(`${process.cwd()}/public`));
@@ -37,51 +48,60 @@ app.listen(port, function() {
   console.log(`Listening on port ${port}`);
 });
 
-// const schema = new mongoose.Schema({ name: 'string', id: inrger });
-// const Tank = mongoose.model('Tank', schema);
 
-// const Schema = mongoose.Schema
-// const URLSchema = new Schema({
-// oldURL : String,
-// id : Number
-// })
+var urlSchema = new mongoose.Schema({
+  oldURL: String,
+  id: Number,
+  newURL: String
+});
 
-// const Model = mongoose.model
-// const URL = Model('Urls',URLSchema)
-
-// const NodeJsGuide = new URL({name : 'Googl.com' })
+var URI = mongoose.model("URI", urlSchema);
 
 
+// Posting new short URL
 
-app.post('/api/shorturl', (req,res)=>{
-  const url = req.body.url
-
-  console.log(url)
-
-  if (validUrl.isUri(url)){
-
-              
-      const urlSchema = new mongoose.Schema({
-        oldURL: String,
-        id: Number,
-        newURL: String
-      });
-
-      const URI = mongoose.model("URI", urlSchema);
-
-      const dbUrl = new URI({
-        oldURL: url,
-        id: 1,
-        newURL: "12345"
-      });
-
-      dbUrl.save();
+app.post('/api/shorturl',async (req,res)=>{
+const url = req.body.url
 
 
-    res.json({"original_url": url ,"short_url": "id"});;
+if (validUrl.isUri(url)){
+
+var verify = await URI.findOne({ oldURL: url })
+
+if(url === verify) {
+  
+res.json({"original_url": url ,"short_url": num});;
+
+}
+
+var num = Math.floor(Math.random() * 500000);
+
+console.log(num)
+
+const dbUrl = new URI({
+  oldURL: url,
+  newURL: num
+});
+
+dbUrl.save();
+
+
+res.json({"original_url": url ,"short_url": num});;
 } 
 else {
-    res.json({"error":"Invalid URL"});
+res.json({"error":"Invalid URL"});
 }
-  
+
 } )
+
+// Redirecting to the long URL
+
+app.get('/api/shorturl/:short',async function(req,res){
+var short = req.params.short
+
+var userR = await URI.findOne({ newURL: short })
+if(userR == null) return res.sendStatus(404);
+
+res.redirect(userR.oldURL)
+
+});
